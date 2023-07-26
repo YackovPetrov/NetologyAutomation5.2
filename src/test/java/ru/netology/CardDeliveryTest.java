@@ -1,60 +1,87 @@
 package ru.netology;
 
-import com.codeborne.selenide.Condition;
-import com.codeborne.selenide.logevents.SelenideLogger;
-import io.qameta.allure.selenide.AllureSelenide;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.netology.patterns.carddelivery.data.DataGenerator;
 
 import java.time.Duration;
 
-import static com.codeborne.selenide.Selectors.withText;
+import static com.codeborne.selenide.Condition.text;
+import static com.codeborne.selenide.Condition.visible;
 import static com.codeborne.selenide.Selenide.$;
 import static com.codeborne.selenide.Selenide.open;
+import static ru.netology.DataGenerator.Registration.getRegisteredUser;
+import static ru.netology.DataGenerator.Registration.getUser;
+import static ru.netology.DataGenerator.getRandomLogin;
+import static ru.netology.DataGenerator.getRandomPassword;
 
-public class CardDeliveryTest {
-    @BeforeAll
-    static void setUpAll() {
-        SelenideLogger.addListener("allure", new AllureSelenide());
+class AuthTest {
+
+    @BeforeEach
+    void setup() {
+        open("http://localhost:9999");
     }
-
-    @AfterAll
-    static void tearDownAll() {
-        SelenideLogger.removeListener("allure");
-    }
-
-    String city = DataGenerator.generateCity();
-    String firstDate = DataGenerator.generateDate(4, "dd.MM.yyyy");
-    String secondDate = DataGenerator.generateDate(7, "dd.MM.yyyy");
-    String name = DataGenerator.generateName();
-    String phoneNumber = DataGenerator.generatePhoneNumber();
 
     @Test
-    void shouldDeliveryCard() {
-        open("http://localhost:9999");
+    @DisplayName("Should successfully login with active registered user")
+    void shouldSuccessfulLoginIfRegisteredActiveUser() {
+        var registeredUser = getRegisteredUser("active");
 
-        $("[data-test-id=city] input").setValue(city);
-        $("[data-test-id=date] input").doubleClick().sendKeys(firstDate);
-        $("[data-test-id=name] input").setValue(name);
-        $("[data-test-id=phone] input").setValue(phoneNumber);
-        $(withText("Успешно")).shouldBe(Condition.hidden);
-        $("[data-test-id=agreement]").click();
-        $(".button").click();
-        $("[data-test-id=success-notification]").shouldBe(Condition.visible, Duration.ofSeconds(40));
-        $("[data-test-id=success-notification]").shouldHave(Condition.text("Успешно!\n" +
-                "Встреча успешно запланирована на " + firstDate)).shouldBe(Condition.visible);
-        $("[data-test-id=date] input").doubleClick().sendKeys(secondDate);
-        $(".button").click();
-        $("[data-test-id=replan-notification]").shouldBe(Condition.visible, Duration.ofSeconds(40));
-        $("[data-test-id=replan-notification]").shouldHave(Condition.text(
-                "У вас уже запланирована встреча на другую дату. Перепланировать?")).shouldBe(Condition.visible, Duration.ofSeconds(40));
-        $("[data-test-id=replan-notification] button").click();
-        $("[data-test-id=success-notification]").shouldBe(Condition.visible, Duration.ofSeconds(40));
-        $("[data-test-id=success-notification]").shouldHave(Condition.text("Успешно!\n" +
-                "Встреча успешно запланирована на " + secondDate)).shouldBe(Condition.visible);
+        $("[data-test-id=login] input").setValue(registeredUser.getLogin());
+        $("[data-test-id=password] input").setValue(registeredUser.getPassword());
+        $("[data-test-id=action-login].button").click();
+
+        $(".heading").shouldHave(text("Личный кабинет")).shouldBe(visible, Duration.ofSeconds(10));
+
     }
 
+    @Test
+    @DisplayName("Should get error message if login with not registered user")
+    void shouldGetErrorIfNotRegisteredUser() {
+        var notRegisteredUser = getUser("active");
 
+        $("[data-test-id=login] input").setValue(notRegisteredUser.getLogin());
+        $("[data-test-id=password] input").setValue(notRegisteredUser.getPassword());
+        $("[data-test-id=action-login].button").click();
+
+        $("[data-test-id=error-notification].notification_status_error .notification__content").shouldHave(text("Ошибка! Неверно указан логин или пароль")).shouldBe(visible, Duration.ofSeconds(10));
+    }
+
+    @Test
+    @DisplayName("Should get error message if login with blocked registered user")
+    void shouldGetErrorIfBlockedUser() {
+        var blockedUser = getRegisteredUser("blocked");
+
+        $("[data-test-id=login] input").setValue(blockedUser.getLogin());
+        $("[data-test-id=password] input").setValue(blockedUser.getPassword());
+        $("[data-test-id=action-login].button").click();
+
+        $("[data-test-id=error-notification].notification_status_error .notification__content").shouldHave(text("Ошибка! Пользователь заблокирован")).shouldBe(visible, Duration.ofSeconds(10));
+    }
+
+    @Test
+    @DisplayName("Should get error message if login with wrong login")
+    void shouldGetErrorIfWrongLogin() {
+        var registeredUser = getRegisteredUser("active");
+        var wrongLogin = getRandomLogin();
+
+        $("[data-test-id=login] input").setValue(wrongLogin);
+        $("[data-test-id=password] input").setValue(registeredUser.getPassword());
+        $("[data-test-id=action-login].button").click();
+
+        $("[data-test-id=error-notification].notification_status_error .notification__content").shouldHave(text("Ошибка! Неверно указан логин или пароль")).shouldBe(visible, Duration.ofSeconds(10));
+    }
+
+    @Test
+    @DisplayName("Should get error message if login with wrong password")
+    void shouldGetErrorIfWrongPassword() {
+        var registeredUser = getRegisteredUser("active");
+        var wrongPassword = getRandomPassword();
+
+        $("[data-test-id=login] input").setValue(registeredUser.getLogin());
+        $("[data-test-id=password] input").setValue(wrongPassword);
+        $("[data-test-id=action-login].button").click();
+
+        $("[data-test-id=error-notification].notification_status_error .notification__content").shouldHave(text("Ошибка! Неверно указан логин или пароль")).shouldBe(visible, Duration.ofSeconds(10));
+    }
 }

@@ -1,34 +1,72 @@
 package ru.netology;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import com.github.javafaker.Faker;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.filter.log.LogDetail;
+import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
+import lombok.Value;
+import lombok.val;
 
 import java.util.Locale;
-import java.util.Random;
 
-import com.github.javafaker.Faker;
+import static io.restassured.RestAssured.given;
 
 public class DataGenerator {
+    private static final RequestSpecification requestSpec = new RequestSpecBuilder()
+            .setBaseUri("http://localhost")
+            .setPort(9999)
+            .setAccept(ContentType.JSON)
+            .setContentType(ContentType.JSON)
+            .log(LogDetail.ALL)
+            .build();
+    private static final Faker faker = new Faker(new Locale("en"));
+
     private DataGenerator() {
     }
-    static Faker faker = new Faker(new Locale("ru"));
 
-    public static String generateDate(int addDays, String pattern) {
-        return LocalDate.now().plusDays(addDays).format(DateTimeFormatter.ofPattern(pattern));
+    private static void sendRequest(RegistrationDto user) {
+        given()
+                .spec(requestSpec)
+                .body(user)
+                .when()
+                .post("/api/system/users")
+                .then()
+                .statusCode(200);
+
     }
 
-    public static String generateName() {
-        return faker.name().name();
+    public static String getRandomLogin() {
+        return faker.name().firstName();
     }
 
-    public static String generatePhoneNumber() {
-        return faker.numerify("+###########");
+    public static String getRandomPassword() {
+        return faker.internet().password();
     }
 
-    public static String generateCity() {
-        var cities = new String[]{
-                "Санкт-Петербург", "Омск", "Ульяновск", "Псков", "Йошкар-Ола", "Великий Новгород"
-        };
-        return cities[new Random().nextInt(cities.length)];
+    public static class Registration {
+        private Registration() {
+        }
+
+        public static RegistrationDto getUser(String status) {
+            val login = getRandomLogin();
+            val password = getRandomPassword();
+            return new RegistrationDto(login, password, status);
+        }
+
+        public static RegistrationDto getRegisteredUser(String status) {
+            val login = getRandomLogin();
+            val password = getRandomPassword();
+            RegistrationDto registeredUser = new RegistrationDto(login, password, status);
+            sendRequest(registeredUser);
+            return registeredUser;
+        }
+    }
+
+    @Value
+    public static class RegistrationDto {
+        String login;
+        String password;
+        String status;
     }
 }
